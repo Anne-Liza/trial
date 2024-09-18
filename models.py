@@ -1,69 +1,90 @@
-# models.py
+from sqlalchemy import create_engine, Column, Integer, String, Date, ForeignKey
+from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.ext.declarative import declarative_base
 
-from sqlalchemy import Column, String, Integer, ForeignKey
-from sqlalchemy.orm import relationship
-from database import Base
+Base = declarative_base()
 
 class Band(Base):
     __tablename__ = 'bands'
     
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    hometown = Column(String)
-    
-    # Relationship to Concerts
-    concerts = relationship("Concert", back_populates="band")
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    hometown = Column(String, nullable=False)
 
-    def concerts(self):
-        # Method to return all concerts for this band
-        pass
+    concerts = relationship('Concert', back_populates='band')
+
+    def play_in_venue(self, venue, date):
+        concert = Concert(band=self, venue=venue, date=date)
+        return concert
 
     def venues(self):
-        # Method to return all venues this band has performed at
-        pass
+        return [concert.venue for concert in self.concerts]
+
+    @classmethod
+    def most_performances(cls, session):
+        return session.query(cls).outerjoin(Concert).group_by(cls.id).order_by(func.count(Concert.id).desc()).first()
 
 class Venue(Base):
     __tablename__ = 'venues'
-    
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    city = Column(String)
-    
-    # Relationship to Concerts
-    concerts = relationship("Concert", back_populates="venue")
 
-    def concerts(self):
-        # Method to return all concerts at this venue
-        pass
+    id = Column(Integer, primary_key=True)
+    title = Column(String, nullable=False)
+    city = Column(String, nullable=False)
+
+    concerts = relationship('Concert', back_populates='venue')
 
     def bands(self):
-        # Method to return all bands that performed at this venue
-        pass
+        return [concert.band for concert in self.concerts]
+
+    @classmethod
+    def most_frequent_band(cls, session):
+        return session.query(cls).outerjoin(Concert).group_by(cls.id).order_by(func.count(Concert.id).desc()).first()
 
 class Concert(Base):
     __tablename__ = 'concerts'
-    
-    id = Column(Integer, primary_key=True, index=True)
-    band_id = Column(Integer, ForeignKey('bands.id'))
-    venue_id = Column(Integer, ForeignKey('venues.id'))
-    date = Column(String)
-    
-    # Relationships
-    band = relationship("Band", back_populates="concerts")
-    venue = relationship("Venue", back_populates="concerts")
 
-    def band(self):
-        # Method to return the band for this concert
-        pass
+    id = Column(Integer, primary_key=True)
+    band_id = Column(Integer, ForeignKey('bands.id'), nullable=False)
+    venue_id = Column(Integer, ForeignKey('venues.id'), nullable=False)
+    date = Column(Date, nullable=False)
 
-    def venue(self):
-        # Method to return the venue for this concert
-        pass
+    band = relationship('Band', back_populates='concerts')
+    venue = relationship('Venue', back_populates='concerts')
 
     def hometown_show(self):
-        # Method to check if the concert is in the band's hometown
-        pass
+        return self.venue.city == self.band.hometown
 
     def introduction(self):
-        # Method to return the concert introduction string
-        pass
+        return f"{self.band.name} is performing at {self.venue.title} on {self.date}."
+
+# Create the SQLite database
+engine = create_engine('sqlite:///concerts.db')
+Base.metadata.create_all(engine)
+
+# Session setup
+Session = sessionmaker(bind=engine)
+session = Session()
+
+# Example to add data and test
+if __name__ == "__main__":
+    # Add test data
+    band = Band(name='The Rockers', hometown='Rock City')
+    venue = Venue(title='The Big Stage', city='Rock City')
+    session.add(band)
+    session.add(venue)
+    session.commit()
+
+    # Create a concert using the band's method
+    concert = band.play_in_venue(venue, '2024-09-16')
+    session.add(concert)
+    session.commit()
+
+    # Test methods
+    print(band.concerts)  # List of concerts for the band
+    print([v.title for v in band.venues()])  # List of venue titles for the band
+    print(venue.concerts)  # List of concerts at the venue
+    print([b.name for b in venue.bands()])  # List of band names that performed at the venue
+    print(concert.hometown_show())  # Check if concert is in the band's hometown
+    print(concert.introduction())  # Print introduction
+    print(Band.most_performances(session))  # Band with most performances
+    print(Venue.most_frequent_band(session))  # Band with most concerts at the venue

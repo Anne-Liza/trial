@@ -2,8 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import Base, Band, Venue, Concert
 
-engine = create_engine('sqlite:///test.db')
-Base.metadata.create_all(engine)
+engine = create_engine('sqlite:///concerts.db')
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -20,9 +19,9 @@ session.add(concert)
 session.commit()
 
 # Test methods
-print(band.concerts())  # List of concerts for the band
+print(band.concerts)  # List of concerts for the band
 print(band.venues())  # List of venues for the band
-print(venue.concerts())  # List of concerts at the venue
+print(venue.concerts)  # List of concerts at the venue
 print(venue.bands())  # List of bands that performed at the venue
 print(concert.hometown_show())  # Check if concert is in the band's hometown
 print(concert.introduction())  # Print introduction
