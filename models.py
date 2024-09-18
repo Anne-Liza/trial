@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, Date, ForeignKey
 from sqlalchemy.orm import relationship, declarative_base
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.sql import func
+from datetime import datetime
 
 Base = declarative_base()
 
@@ -13,7 +14,8 @@ class Band(Base):
 
     concerts = relationship('Concert', back_populates='band')
 
-    def play_in_venue(self, venue, date):
+    def play_in_venue(self, venue, date_str):
+        date = datetime.strptime(date_str, '%Y-%m-%d').date()
         concert = Concert(band=self, venue=venue, date=date)
         return concert
 
@@ -23,6 +25,9 @@ class Band(Base):
     @classmethod
     def most_performances(cls, session):
         return session.query(cls).outerjoin(Concert).group_by(cls.id).order_by(func.count(Concert.id).desc()).first()
+
+    def __repr__(self):
+        return f"<Band(name={self.name}, hometown={self.hometown})>"
 
 class Venue(Base):
     __tablename__ = 'venues'
@@ -34,11 +39,14 @@ class Venue(Base):
     concerts = relationship('Concert', back_populates='venue')
 
     def bands(self):
-        return [concert.band for concert in self.concerts]
+        return list({concert.band for concert in self.concerts}) 
 
     @classmethod
     def most_frequent_band(cls, session):
-        return session.query(cls).outerjoin(Concert).group_by(cls.id).order_by(func.count(Concert.id).desc()).first()
+        return session.query(Band).join(Concert).filter(Concert.venue_id == cls.id).group_by(Band.id).order_by(func.count(Concert.id).desc()).first()
+
+    def __repr__(self):
+        return f"<Venue(title={self.title}, city={self.city})>"
 
 class Concert(Base):
     __tablename__ = 'concerts'
@@ -55,36 +63,11 @@ class Concert(Base):
         return self.venue.city == self.band.hometown
 
     def introduction(self):
-        return f"{self.band.name} is performing at {self.venue.title} on {self.date}."
+        return f"Another one for {self.venue.city}!!!!! {self.band.name}. Are you ready {self.band.hometown}."
+
+    def __repr__(self):
+        return f"<Concert(band={self.band.name}, venue={self.venue.title}, date={self.date})>"
 
 # Create the SQLite database
 engine = create_engine('sqlite:///concerts.db')
 Base.metadata.create_all(engine)
-
-# Session setup
-Session = sessionmaker(bind=engine)
-session = Session()
-
-# Example to add data and test
-if __name__ == "__main__":
-    # Add test data
-    band = Band(name='The Rockers', hometown='Rock City')
-    venue = Venue(title='The Big Stage', city='Rock City')
-    session.add(band)
-    session.add(venue)
-    session.commit()
-
-    # Create a concert using the band's method
-    concert = band.play_in_venue(venue, '2024-09-16')
-    session.add(concert)
-    session.commit()
-
-    # Test methods
-    print(band.concerts)  # List of concerts for the band
-    print([v.title for v in band.venues()])  # List of venue titles for the band
-    print(venue.concerts)  # List of concerts at the venue
-    print([b.name for b in venue.bands()])  # List of band names that performed at the venue
-    print(concert.hometown_show())  # Check if concert is in the band's hometown
-    print(concert.introduction())  # Print introduction
-    print(Band.most_performances(session))  # Band with most performances
-    print(Venue.most_frequent_band(session))  # Band with most concerts at the venue

@@ -6,7 +6,7 @@ from models import Base, Band, Venue, Concert
 class TestConcertModels(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.engine = create_engine('sqlite:///:memory:')  # Use in-memory database for testing
+        cls.engine = create_engine('sqlite:///:memory:')  
         Base.metadata.create_all(cls.engine)
         cls.Session = sessionmaker(bind=cls.engine)
 
@@ -14,8 +14,8 @@ class TestConcertModels(unittest.TestCase):
         self.session = self.Session()
 
         # Setup test data
-        self.band = Band(name='The Rockers', hometown='Rock City')
-        self.venue = Venue(title='The Big Stage', city='Rock City')
+        self.band = Band(name='Sauti Sol', hometown='Nairobi')
+        self.venue = Venue(title='Ngong Race course', city='Nairobi')
         self.session.add(self.band)
         self.session.add(self.venue)
         self.session.commit()
